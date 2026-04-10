@@ -1,16 +1,15 @@
-
-
 import os
 import pandas as pd
 import streamlit as st
 from dotenv import load_dotenv
 from openai import OpenAI
 
+# Ladda lokala variabler (funkar lokalt)
 load_dotenv()
 
 st.set_page_config(page_title="AI Meeting Summarizer", page_icon="📝")
 
-# 🔑 API key (Streamlit secrets + fallback local)
+# 🔑 API key (Streamlit Cloud + lokal fallback)
 api_key = st.secrets.get("OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
 
 if not api_key:
@@ -20,7 +19,6 @@ if not api_key:
 client = OpenAI(api_key=api_key)
 
 st.title("📝 AI Meeting Summarizer")
-
 st.write("Klistra in mötesanteckningar eller ladda upp en .txt-fil.")
 
 # 📂 FILE UPLOAD
@@ -32,7 +30,7 @@ notes_input = st.text_area(
     height=200
 )
 
-# 🧠 Bestäm vilken input som används
+# 🧠 Bestäm input
 notes = ""
 
 if uploaded_file is not None:
@@ -50,9 +48,8 @@ def parse_sections(text: str) -> dict:
     }
 
     current_section = None
-    lines = text.splitlines()
 
-    for line in lines:
+    for line in text.splitlines():
         stripped = line.strip()
 
         if stripped.lower().startswith("sammanfattning"):
@@ -119,7 +116,7 @@ Meeting notes:
                 st.markdown("## 🧠 Beslut")
                 st.markdown(parsed["Beslut"] or "Inga beslut hittades.")
 
-                # ✅ Action Points (TABELL)
+                # ✅ Action Points
                 st.markdown("## ✅ Action Points")
 
                 actions_text = parsed["Action points"]
