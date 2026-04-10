@@ -1,29 +1,48 @@
+
+st.write("SECRET:", st.secrets)
+
+
 import os
 import pandas as pd
-from dotenv import load_dotenv
 import streamlit as st
+from dotenv import load_dotenv
 from openai import OpenAI
 
 load_dotenv()
 
-api_key = os.getenv("OPENAI_API_KEY")
+st.set_page_config(page_title="AI Meeting Summarizer", page_icon="📝")
+
+# 🔑 API key (Streamlit secrets + fallback local)
+api_key = st.secrets.get("OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
 
 if not api_key:
-    st.error("OPENAI_API_KEY saknas. Lägg till den i din .env-fil.")
+    st.error("OPENAI_API_KEY saknas. Lägg till den i Streamlit Secrets.")
     st.stop()
 
 client = OpenAI(api_key=api_key)
 
-st.set_page_config(page_title="AI Meeting Summarizer", page_icon="📝")
-
 st.title("📝 AI Meeting Summarizer")
-st.write("Klistra in mötesanteckningar och få en sammanfattning, beslut och action points.")
 
-notes = st.text_area(
-    "Mötesanteckningar",
-    height=250,
-    placeholder="Klistra in mötesanteckningar här..."
+st.write("Klistra in mötesanteckningar eller ladda upp en .txt-fil.")
+
+# 📂 FILE UPLOAD
+uploaded_file = st.file_uploader("Ladda upp mötesanteckningar (.txt)")
+
+# ✍️ TEXT INPUT
+notes_input = st.text_area(
+    "Eller klistra in mötesanteckningar",
+    height=200
 )
+
+# 🧠 Bestäm vilken input som används
+notes = ""
+
+if uploaded_file is not None:
+    notes = uploaded_file.read().decode("utf-8")
+    st.success("Fil uppladdad!")
+elif notes_input.strip():
+    notes = notes_input
+
 
 def parse_sections(text: str) -> dict:
     sections = {
@@ -49,21 +68,24 @@ def parse_sections(text: str) -> dict:
             continue
 
         if current_section and stripped:
-            sections[current_section] += line + "\n"
+            sections[current_section] += stripped + "\n"
 
     return {k: v.strip() for k, v in sections.items()}
 
+
 if st.button("Sammanfatta möte"):
     if not notes.strip():
-        st.warning("Du måste skriva eller klistra in mötesanteckningar först.")
+        st.warning("Du måste skriva eller ladda upp mötesanteckningar först.")
     else:
         with st.spinner("Analyserar mötet..."):
             prompt = f"""
-Du är en senior projektledare inom tech.
+You are a senior technical project manager.
 
-Analysera följande mötesanteckningar.
+Analyze the meeting notes below.
 
-Ge svaret i exakt detta format och på svenska:
+Respond in the same language as the input.
+
+Use exactly this format:
 
 Sammanfattning:
 - max 5 tydliga punkter
@@ -74,9 +96,9 @@ Beslut:
 Action points:
 - Uppgift | Ansvarig | Deadline
 
-Om ansvarig eller deadline saknas, skriv "Ej angivet".
+If responsible person or deadline is missing, write "Ej angivet".
 
-Mötesanteckningar:
+Meeting notes:
 {notes}
 """
 
@@ -91,12 +113,15 @@ Mötesanteckningar:
 
                 st.success("Klart.")
 
+                # 📌 Sammanfattning
                 st.markdown("## 📌 Sammanfattning")
                 st.markdown(parsed["Sammanfattning"] or "Ingen sammanfattning hittades.")
 
+                # 🧠 Beslut
                 st.markdown("## 🧠 Beslut")
                 st.markdown(parsed["Beslut"] or "Inga beslut hittades.")
 
+                # ✅ Action Points (TABELL)
                 st.markdown("## ✅ Action Points")
 
                 actions_text = parsed["Action points"]
@@ -114,6 +139,7 @@ Mötesanteckningar:
                 else:
                     st.write("Inga action points hittades.")
 
+                # 📥 Download
                 st.download_button(
                     label="⬇️ Ladda ner resultat",
                     data=result,
