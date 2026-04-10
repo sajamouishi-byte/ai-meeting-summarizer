@@ -1,6 +1,4 @@
 
-st.write("SECRET:", st.secrets)
-
 
 import os
 import pandas as pd
